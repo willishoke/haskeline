@@ -40,6 +40,7 @@ module System.Console.Haskeline(
                     useFileHandle,
                     useFile,
                     preferTerm,
+                    useBrick,
                     -- * User interaction functions
                     -- ** Reading user input
                     -- $inputfncs

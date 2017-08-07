@@ -46,7 +46,8 @@ Library
     Build-depends: base >=4.5 && < 4.11, containers>=0.4 && < 0.6,
                    directory>=1.1 && < 1.4, bytestring>=0.9 && < 0.11,
                    filepath >= 1.2 && < 1.5, transformers >= 0.2 && < 0.6,
-                   process >= 1.0 && < 1.7
+                   process >= 1.0 && < 1.7, brick >= 0.17,
+                   vty >= 5.15
     Default-Language: Haskell98
     Default-Extensions:
                 ForeignFunctionInterface, Rank2Types, FlexibleInstances,
@@ -64,6 +65,7 @@ Library
                 System.Console.Haskeline.MonadException
                 System.Console.Haskeline.History
                 System.Console.Haskeline.IO
+                System.Console.Haskeline.Brick
     Other-Modules:
                 System.Console.Haskeline.Backend
                 System.Console.Haskeline.Backend.WCWidth

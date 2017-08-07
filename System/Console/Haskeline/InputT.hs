@@ -10,6 +10,7 @@ import System.Console.Haskeline.Prefs
 import System.Console.Haskeline.Completion
 import System.Console.Haskeline.Backend
 import System.Console.Haskeline.Term
+import qualified System.Console.Haskeline.Brick as B
 
 import System.Directory(getHomeDirectory)
 import System.FilePath
@@ -189,6 +190,9 @@ useFile file = Behavior $ do
 -- If it cannot open the user's terminal, use file-style interaction, reading input from 'stdin'.
 preferTerm :: Behavior
 preferTerm = Behavior terminalRunTerm
+
+useBrick :: B.Widget n -> Behavior
+useBrick w = Behavior (B.brickRunTerm w)
 
 
 -- | Read 'Prefs' from @~/.haskeline.@   If there is an error reading the file,
