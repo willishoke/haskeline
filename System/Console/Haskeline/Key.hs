@@ -8,7 +8,8 @@ module System.Console.Haskeline.Key(Key(..),
             ctrlChar,
             metaKey,
             ctrlKey,
-            parseKey
+            parseKey,
+            setControlBits
             ) where
 
 import Data.Char
@@ -98,7 +99,7 @@ breakAtDashes str = case break (=='-') str of
     (xs,_) -> [xs]
 
 parseKey :: String -> Maybe Key
-parseKey str = fmap canonicalizeKey $ 
+parseKey str = fmap canonicalizeKey $
     case reverse (breakAtDashes str) of
         [ks] -> liftM simpleKey (parseBaseKey ks)
         ks:ms -> liftM (parseModifiers ms) (parseBaseKey ks)
