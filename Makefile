@@ -4,4 +4,4 @@ go: build
 
 .PHONY: build
 build:
-	stack build
+	stack build --flag haskeline:brick

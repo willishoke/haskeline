@@ -39,6 +39,11 @@ flag terminfo
     Default: True
     Manual: True
 
+flag brick
+    Description: Build the Brick widget
+    Default: False
+    Manual: True
+
 Library
     -- We require ghc>=7.4.1 (base>=4.5) to use the base library encodings, even
     -- though it was implemented in earlier releases, due to GHC bug #5436 which
@@ -46,8 +51,8 @@ Library
     Build-depends: base >=4.5 && < 4.11, containers>=0.4 && < 0.6,
                    directory>=1.1 && < 1.4, bytestring>=0.9 && < 0.11,
                    filepath >= 1.2 && < 1.5, transformers >= 0.2 && < 0.6,
-                   process >= 1.0 && < 1.7, brick >= 0.17,
-                   vty >= 5.15
+                   process >= 1.0 && < 1.7
+
     Default-Language: Haskell98
     Default-Extensions:
                 ForeignFunctionInterface, Rank2Types, FlexibleInstances,
@@ -65,7 +70,7 @@ Library
                 System.Console.Haskeline.MonadException
                 System.Console.Haskeline.History
                 System.Console.Haskeline.IO
-                System.Console.Haskeline.Brick
+
     Other-Modules:
                 System.Console.Haskeline.Backend
                 System.Console.Haskeline.Backend.WCWidth
@@ -112,6 +117,11 @@ Library
         }
     }
     ghc-options: -Wall
+
+    if flag(brick) {
+        Build-Depends: brick >= 0.17, vty >= 5.15
+        Exposed-Modules: System.Console.Haskeline.Brick
+    }
 
 Executable brickline
     Hs-Source-Dirs:   brickline
