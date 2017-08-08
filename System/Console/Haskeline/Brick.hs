@@ -14,11 +14,6 @@ import qualified Graphics.Vty as V
 import Control.Concurrent
 import Control.Exception (throw)
 
---import Debug.Trace
-
-
-data Name = BrickWidgetName
-
 data Widget e n = Widget { name :: n
                          , stateMVar :: MVar State
                          , stateCache :: Maybe State
@@ -28,9 +23,9 @@ data Widget e n = Widget { name :: n
                          , fromAppEventType :: e -> Maybe ToBrick
                          }
 
-data State = State { stateLines :: [String]
+data State = State { stateVisibleLines :: [String]
+                   , stateHiddenLines :: [String]
                    , stateCurrent :: (String, String)
-                   , statePrevLinesShowing :: Int
                    }
                    deriving (Show)
 
@@ -40,9 +35,9 @@ initialWidget :: BC.BChan e
               -> n
               -> IO (Widget e n)
 initialWidget toAppChan' toAppEventType' fromAppEventType' n = do
-    stmv <- newMVar $ State { stateLines = []
+    stmv <- newMVar $ State { stateVisibleLines = []
+                            , stateHiddenLines = []
                             , stateCurrent = ("", "")
-                            , statePrevLinesShowing = 0
                             }
     ch <- newChan
     return $ Widget { name = n
@@ -103,9 +98,8 @@ brickRunTerm w = do
 
 putStrOut' :: Widget e n -> String -> IO ()
 putStrOut' w str = do
-    --traceM $ "putStrOut': " ++ str
     s' <- modifyMVar (stateMVar w) $ \s -> do
-        let s' = s { stateLines = str : stateLines s }
+        let s' = s { stateVisibleLines = stateVisibleLines s ++ [str] }
         return (s', s')
     BC.writeBChan (toAppChan w) $ toAppEventType w $ StateUpdated s'
 
@@ -113,7 +107,6 @@ putStrOut' w str = do
 
 getLayout' :: Widget e n -> IO Layout
 getLayout' w = do
-    --traceM "getLayout'"
     mv <- newEmptyMVar
     let e = toAppEventType w $ LayoutRequest mv
     BC.writeBChan (toAppChan w) e
@@ -173,35 +166,33 @@ instance (MonadReader Layout m, MonadException m)
     reposition _ _ = return ()
 
     moveToNextLine _ = MkBrickTerm $ do
-        --traceM "moveToNextLine"
         w <- Reader.ask
         liftIO $ modifyMVar_ (stateMVar w) $ \s ->
             let (pre,suff) = stateCurrent s in
-            return $ s { stateLines = (pre ++ suff) : stateLines s
+            return $ s { stateVisibleLines =
+                            stateVisibleLines s ++ [pre ++ suff]
                        , stateCurrent = ("", "")
                        }
 
     printLines ls = MkBrickTerm $ do
-        --traceM "printLines"
         w <- Reader.ask
         liftIO $ modifyMVar_ (stateMVar w) $ \s ->
-            return $ s { stateLines = (reverse ls) ++ stateLines s }
+            return $ s { stateVisibleLines = stateVisibleLines s ++ ls }
 
     drawLineDiff _ (pre, suff) = MkBrickTerm $ do
-        --traceM $ "drawLineDiff: " ++ graphemesToString pre ++ graphemesToString suff
         w <- Reader.ask
         s' <- liftIO $ modifyMVar (stateMVar w) $ \s -> do
             let s' = s { stateCurrent = ( graphemesToString pre
                                         , graphemesToString suff) }
             return (s', s')
         liftIO $ BC.writeBChan (toAppChan w) $ toAppEventType w $ StateUpdated s'
-        --traceM "drawLineDiff done"
 
     clearLayout = MkBrickTerm $ do
-        --traceM "clearLayout"
         w <- Reader.ask
         liftIO $ modifyMVar_ (stateMVar w) $ \s ->
-            return $ s { statePrevLinesShowing = 0 }
+            return $ s { stateVisibleLines = []
+                       , stateHiddenLines = stateHiddenLines s ++ stateVisibleLines s
+                       }
 
     ringBell _ = return ()
 
@@ -213,11 +204,11 @@ render (Widget { name = n, stateCache = Nothing }) =
 render (Widget { name = n
                , stateCache = Just (
                     State { stateCurrent = (pre, suff)
-                          , stateLines = lines})
+                          , stateVisibleLines = ls})
                }) =
 
     B.viewport n B.Vertical $ B.reportExtent n $
-        B.vBox (map (B.str) (reverse lines))
+        B.vBox (map (B.str) ls)
             B.<=>
                 (B.str pre B.<+>
                     (B.showCursor n (B.Location (0,0))
