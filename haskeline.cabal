@@ -122,13 +122,3 @@ Library
         Build-Depends: brick >= 0.17, vty >= 5.15
         Exposed-Modules: System.Console.Haskeline.Brick
     }
-
-Executable brickline
-    Hs-Source-Dirs:   brickline
-    Main-Is:          Main.hs
-    Build-Depends:    haskeline
-                    , base
-                    , brick >= 0.17
-                    , vty >= 5.15
-    Default-Language: Haskell98
-    Ghc-Options:      -Wall -threaded -rtsopts -with-rtsopts=-N
