@@ -24,28 +24,23 @@ data Event = InputLine String
 data Name = TheApp | HaskelineWidget
     deriving (Ord, Eq, Show)
 
-data MyState = MyState { haskelineWidget :: HB.Widget Event Name }
+data MyState = MyState { haskelineWidget :: HB.Widget Name }
 
-initialState :: BChan Event -> IO MyState
-initialState chan = do
-    hw <- HB.initialWidget
-            chan
-            FromHBWidget
-            (\case { FromHBWidget x -> Just x; _ -> Nothing })
-            HaskelineWidget
-    return $ MyState { haskelineWidget = hw }
+initialState :: MyState
+initialState =MyState { haskelineWidget = HB.initialWidget HaskelineWidget }
 
-app :: App MyState Event Name
-app = App { appDraw = drawUI
-          , appChooseCursor = \_ -> showCursorNamed HaskelineWidget
-          , appHandleEvent = handleEvent
-          , appStartEvent = return
-          , appAttrMap = const theMap
-          }
+app :: HB.Config Event -> App MyState Event Name
+app c = App { appDraw = drawUI
+            , appChooseCursor = \_ -> showCursorNamed HaskelineWidget
+            , appHandleEvent = handleEvent c
+            , appStartEvent = return
+            , appAttrMap = const theMap
+            }
 
-handleEvent :: MyState -> BrickEvent Name Event -> EventM Name (Next MyState)
-handleEvent s@MyState{haskelineWidget = hw} e = do
-    hw' <- HB.handleEvent hw e
+handleEvent :: HB.Config Event
+            -> MyState -> BrickEvent Name Event -> EventM Name (Next MyState)
+handleEvent c s@MyState{haskelineWidget = hw} e = do
+    hw' <- HB.handleEvent c hw e
     handleAppEvent (s { haskelineWidget = hw' }) e
 
 handleAppEvent :: MyState -> BrickEvent Name Event -> EventM Name (Next MyState)
@@ -63,8 +58,8 @@ drawUI s = [(C.center $ str "yo") <=>
 theMap :: AttrMap
 theMap = attrMap V.defAttr []
 
-runHaskeline :: HB.Widget Event Name -> IO ()
-runHaskeline w = runInputTBehavior (useBrick w) defaultSettings loop
+runHaskeline :: HB.Config Event -> IO ()
+runHaskeline c = runInputTBehavior (HB.useBrick c) defaultSettings loop
    where
        loop :: InputT IO ()
        loop = do
@@ -79,8 +74,15 @@ runHaskeline w = runInputTBehavior (useBrick w) defaultSettings loop
 main :: IO ()
 main = do
     chan <- newBChan 10
-    s <- initialState chan
+    config <- HB.configure
+            chan
+            FromHBWidget
+            (\case { FromHBWidget x -> Just x; _ -> Nothing })
     _ <- forkFinally
-            (runHaskeline $ haskelineWidget s)
+            (runHaskeline config)
             (writeBChan chan . HaskelineDied)
-    void $ customMain (V.mkVty V.defaultConfig) (Just chan) app s
+    void $ customMain
+        (V.mkVty V.defaultConfig)
+        (Just chan)
+        (app config)
+        initialState
