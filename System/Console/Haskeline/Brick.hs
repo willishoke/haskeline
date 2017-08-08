@@ -22,7 +22,7 @@ data Name = BrickWidgetName
 data Widget e n = Widget { name :: n
                          , stateMVar :: MVar State
                          , stateCache :: Maybe State
-                         , fromBrickChan :: Chan FromBrick
+                         , fromBrickChan :: Chan Event
                          , toAppChan :: BC.BChan e
                          , toAppEventType :: ToBrick -> e
                          , fromAppEventType :: e -> Maybe ToBrick
@@ -82,21 +82,18 @@ handleEvent w (B.AppEvent e) =
       Nothing -> return w
 
 handleEvent w (B.VtyEvent (V.EvKey k ms)) = do
-    liftIO $ writeChan (fromBrickChan w) $ Key k ms
-    --liftIO $ putStrOut' w $ show k ++ show ms
-
+    liftIO $ writeChan (fromBrickChan w) $ transformEvent $ Key k ms
     return w
 
 handleEvent w _ = return w
 
 brickRunTerm :: Widget e n -> IO RunTerm
 brickRunTerm w = do
-    ch <- newChan
     let to = TermOps { getLayout = getLayout' w
-                     , withGetEvent = withGetEvent' (fromBrickChan w) ch
-                     , saveUnusedKeys = saveKeys ch
+                     , withGetEvent = withGetEvent' (fromBrickChan w)
+                     , saveUnusedKeys = saveKeys (fromBrickChan w)
                      , evalTerm = evalBrickTerm w
-                     , externalPrint = writeChan ch . ExternalPrint
+                     , externalPrint = writeChan (fromBrickChan w) . ExternalPrint
                      }
     return $ RunTerm { putStrOut = putStrOut' w
                      , termOps = Left to
@@ -151,31 +148,17 @@ addModifiers (V.MShift:ms) (K.Key m bc) =
     addModifiers ms $ (K.Key m { K.hasShift = True } bc)
 addModifiers (V.MCtrl:ms) (K.Key m (K.KeyChar c)) = addModifiers ms $
     K.Key m (K.KeyChar $ K.setControlBits c)
-        -- TODO: is it necessary to `setControlBits`?
 addModifiers (V.MCtrl:ms) k = addModifiers ms . K.ctrlKey $ k
 addModifiers (V.MMeta:ms) k = addModifiers ms . K.metaKey $ k
 addModifiers (V.MAlt:ms) k = addModifiers ms k
 
 withGetEvent' :: forall m a . CommandMonad m
-              => Chan FromBrick -> Chan Event -> (m Event -> m a) -> m a
-withGetEvent' chanFromBrick chanEvent f = do
-    --traceM "withGetEvent'"
-    a <- f $ liftIO $ getEvent chanFromBrick chanEvent
-    --traceM "withGetEvent' done"
-    return a
+              => Chan Event -> (m Event -> m a) -> m a
+withGetEvent' chanEvent f = f $ liftIO $ readChan chanEvent
 
-getEvent :: Chan FromBrick -> Chan Event -> IO Event
-getEvent chanFromBrick =
-    keyEventLoop $ do
-        b <- isEmptyChan chanFromBrick
-        if b then return []
-             else do
-                e <- transformEvent <$> readChan chanFromBrick
-                return [e]
-
-newtype BrickTerm e n m a = MkBrickTerm { unBrickTerm :: ReaderT (Widget e n) m a }
-    deriving ( MonadException, MonadIO, Monad, Applicative, Functor
-             )
+newtype BrickTerm e n m a =
+    MkBrickTerm { unBrickTerm :: ReaderT (Widget e n) m a }
+    deriving ( MonadException, MonadIO, Monad, Applicative, Functor )
 
 instance MonadTrans (BrickTerm e n) where
     lift = MkBrickTerm . lift
@@ -185,7 +168,8 @@ evalBrickTerm w = EvalTerm
     (runReaderT' w . unBrickTerm)
     (MkBrickTerm . lift)
 
-instance (MonadReader Layout m, MonadException m) => Term (BrickTerm e n m) where
+instance (MonadReader Layout m, MonadException m)
+  => Term (BrickTerm e n m) where
     reposition _ _ = return ()
 
     moveToNextLine _ = MkBrickTerm $ do
