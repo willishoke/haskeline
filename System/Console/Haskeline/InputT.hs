@@ -191,7 +191,7 @@ useFile file = Behavior $ do
 preferTerm :: Behavior
 preferTerm = Behavior terminalRunTerm
 
-useBrick :: B.Widget n -> Behavior
+useBrick :: B.Widget e n -> Behavior
 useBrick w = Behavior (B.brickRunTerm w)
 
 

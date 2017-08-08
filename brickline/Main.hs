@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 module Main where
 
 import System.Console.Haskeline
@@ -9,15 +10,26 @@ import qualified Brick.Widgets.Center as C
 import qualified Graphics.Vty as V
 
 import Control.Monad (void)
+import Control.Concurrent (forkFinally)
 
-data Event = InputLine String | EOF | Quit
+import Control.Monad.IO.Class (liftIO)
+
+data Event = InputLine String
+           | EOF
+           | Quit
+           | FromHBWidget HB.ToBrick
+           | HaskelineDied (Either SomeException ())
 data Name = TheApp | HaskelineWidget
     deriving (Ord, Eq)
-data MyState = MyState { haskelineWidget :: HB.Widget Name }
+data MyState = MyState { haskelineWidget :: HB.Widget Event Name }
 
-initialState :: IO MyState
-initialState = do
-    hw <- HB.initialWidget HaskelineWidget
+initialState :: BChan Event -> IO MyState
+initialState chan = do
+    hw <- HB.initialWidget
+            chan
+            FromHBWidget
+            (\case { FromHBWidget x -> Just x; _ -> Nothing })
+            HaskelineWidget
     return $ MyState { haskelineWidget = hw }
 
 app :: App MyState Event Name
@@ -29,24 +41,25 @@ app = App { appDraw = drawUI
           }
 
 handleEvent :: MyState -> BrickEvent Name Event -> EventM Name (Next MyState)
-handleEvent s@MyState{haskelineWidget = hw} e@(VtyEvent ve) = do
-    hw' <- HB.handleEvent hw ve
-    let s' = s { haskelineWidget = hw' }
-    handleAppEvent s' e
-handleEvent s e = handleAppEvent s e
+handleEvent s@MyState{haskelineWidget = hw} e = do
+    _ <- HB.handleEvent hw e
+    handleAppEvent s e
 
 handleAppEvent :: MyState -> BrickEvent Name Event -> EventM Name (Next MyState)
-handleAppEvent g (VtyEvent (V.EvKey V.KEsc [])) = halt g
-handleAppEvent g (VtyEvent (V.EvKey (V.KChar 'q') [])) = halt g
+handleAppEvent s (AppEvent (HaskelineDied e)) = do
+    liftIO $ putStrLn $ show e
+    continue s
+handleAppEvent s (VtyEvent (V.EvKey V.KEsc [])) = halt s
+handleAppEvent s (VtyEvent (V.EvKey (V.KChar 'q') [])) = halt s
 handleAppEvent s _ = continue s
 
 drawUI :: MyState -> [Widget Name]
-drawUI _ = [C.center $ str "yo"]
+drawUI s = [(C.center $ str "yo") <=> HB.render (haskelineWidget s)]
 
 theMap :: AttrMap
 theMap = attrMap V.defAttr []
 
-runHaskeline :: HB.Widget Name -> IO ()
+runHaskeline :: HB.Widget Event Name -> IO ()
 runHaskeline w = runInputTBehavior (useBrick w) defaultSettings loop
    where
        loop :: InputT IO ()
@@ -61,8 +74,9 @@ runHaskeline w = runInputTBehavior (useBrick w) defaultSettings loop
 
 main :: IO ()
 main = do
-    --_ <- forkIO $ runHaskeline
     chan <- newBChan 10
-    s <- initialState
-    runHaskeline (haskelineWidget s)
+    s <- initialState chan
+    _ <- forkFinally
+            (runHaskeline $ haskelineWidget s)
+            (writeBChan chan . HaskelineDied)
     void $ customMain (V.mkVty V.defaultConfig) (Just chan) app s
