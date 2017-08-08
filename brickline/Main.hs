@@ -34,7 +34,7 @@ initialState chan = do
 
 app :: App MyState Event Name
 app = App { appDraw = drawUI
-          , appChooseCursor = neverShowCursor
+          , appChooseCursor = \_ -> showCursorNamed HaskelineWidget
           , appHandleEvent = handleEvent
           , appStartEvent = return
           , appAttrMap = const theMap
@@ -42,8 +42,8 @@ app = App { appDraw = drawUI
 
 handleEvent :: MyState -> BrickEvent Name Event -> EventM Name (Next MyState)
 handleEvent s@MyState{haskelineWidget = hw} e = do
-    _ <- HB.handleEvent hw e
-    handleAppEvent s e
+    hw' <- HB.handleEvent hw e
+    handleAppEvent (s { haskelineWidget = hw' }) e
 
 handleAppEvent :: MyState -> BrickEvent Name Event -> EventM Name (Next MyState)
 handleAppEvent s (AppEvent (HaskelineDied e)) = do
