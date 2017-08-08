@@ -75,13 +75,16 @@ handleEvent w (B.AppEvent e) =
             Just (B.Extent _ _ (wid, he) _) -> Just $ Layout wid he
             Nothing -> Nothing
           return w
-      Just (StateUpdated s) ->
+      Just (StateUpdated s) -> do
+          let vp = B.viewportScroll (name w)
+          B.vScrollToEnd vp
           return $ w { stateCache = Just s }
       Nothing -> return w
 
 handleEvent w (B.VtyEvent (V.EvKey k ms)) = do
     liftIO $ writeChan (fromBrickChan w) $ Key k ms
     --liftIO $ putStrOut' w $ show k ++ show ms
+
     return w
 
 handleEvent w _ = return w
@@ -219,17 +222,19 @@ instance (MonadReader Layout m, MonadException m) => Term (BrickTerm e n m) wher
     ringBell _ = return ()
 
 
-render :: Widget e n -> B.Widget n
-render Widget { name = n, stateCache = Nothing } =
+render :: (Ord n, Show n) => Widget e n -> B.Widget n
+render (Widget { name = n, stateCache = Nothing }) =
     B.reportExtent n $ B.str "nothing here yet!"
-render Widget { name = n
-              , stateCache = Just (
+
+render (Widget { name = n
+               , stateCache = Just (
                     State { stateCurrent = (pre, suff)
                           , stateLines = lines})
-              } =
-    B.reportExtent n $
+               }) =
+
+    B.viewport n B.Vertical $ B.reportExtent n $
         B.vBox (map (B.str) (reverse lines))
             B.<=>
                 (B.str pre B.<+>
-                    B.showCursor n (B.Location (0,0))
-                        (B.str suff))
+                    (B.showCursor n (B.Location (0,0))
+                        (B.str suff)))

@@ -7,6 +7,7 @@ import qualified System.Console.Haskeline.Brick as HB
 import Brick
 import Brick.BChan
 import qualified Brick.Widgets.Center as C
+import qualified Brick.Widgets.Border as B
 import qualified Graphics.Vty as V
 
 import Control.Monad (void)
@@ -19,8 +20,10 @@ data Event = InputLine String
            | Quit
            | FromHBWidget HB.ToBrick
            | HaskelineDied (Either SomeException ())
+
 data Name = TheApp | HaskelineWidget
-    deriving (Ord, Eq)
+    deriving (Ord, Eq, Show)
+
 data MyState = MyState { haskelineWidget :: HB.Widget Event Name }
 
 initialState :: BChan Event -> IO MyState
@@ -54,7 +57,8 @@ handleAppEvent s (VtyEvent (V.EvKey (V.KChar 'q') [])) = halt s
 handleAppEvent s _ = continue s
 
 drawUI :: MyState -> [Widget Name]
-drawUI s = [(C.center $ str "yo") <=> HB.render (haskelineWidget s)]
+drawUI s = [(C.center $ str "yo") <=>
+    (B.border $ HB.render (haskelineWidget s))]
 
 theMap :: AttrMap
 theMap = attrMap V.defAttr []
