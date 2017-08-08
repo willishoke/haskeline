@@ -81,7 +81,7 @@ handleEvent w (B.AppEvent e) =
 
 handleEvent w (B.VtyEvent (V.EvKey k ms)) = do
     liftIO $ writeChan (fromBrickChan w) $ Key k ms
-    liftIO $ putStrOut' w $ show k ++ show ms
+    --liftIO $ putStrOut' w $ show k ++ show ms
     return w
 
 handleEvent w _ = return w
@@ -146,14 +146,11 @@ addModifiers :: [V.Modifier] -> K.Key -> K.Key
 addModifiers [] k = k
 addModifiers (V.MShift:ms) (K.Key m bc) =
     addModifiers ms $ (K.Key m { K.hasShift = True } bc)
-addModifiers (V.MCtrl:ms) (K.Key m (K.KeyChar c)) =
-    addModifiers ms $
-        K.Key m { K.hasControl = True } (K.KeyChar $ K.setControlBits c)
+addModifiers (V.MCtrl:ms) (K.Key m (K.KeyChar c)) = addModifiers ms $
+    K.Key m (K.KeyChar $ K.setControlBits c)
         -- TODO: is it necessary to `setControlBits`?
-addModifiers (V.MCtrl:ms) k = 
-    addModifiers ms . K.ctrlKey $ k
-addModifiers (V.MMeta:ms) k =
-    addModifiers ms . K.metaKey $ k
+addModifiers (V.MCtrl:ms) k = addModifiers ms . K.ctrlKey $ k
+addModifiers (V.MMeta:ms) k = addModifiers ms . K.metaKey $ k
 addModifiers (V.MAlt:ms) k = addModifiers ms k
 
 withGetEvent' :: forall m a . CommandMonad m
