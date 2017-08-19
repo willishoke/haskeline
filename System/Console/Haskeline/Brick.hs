@@ -211,6 +211,6 @@ render (MkWidget { name = n
     B.viewport n B.Vertical $ B.reportExtent n $
         B.vBox (map (B.str) ls)
             B.<=>
-                (B.str pre B.<+>
+                (B.visible $ B.str pre B.<+>
                     (B.showCursor n (B.Location (0,0))
                         (B.str suff)))
