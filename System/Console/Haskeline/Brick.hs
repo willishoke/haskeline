@@ -16,6 +16,7 @@ import qualified System.Console.Haskeline.Key as K
 
 import qualified Control.Monad.Trans.Reader as Reader
 
+import Brick hiding (Widget, render)
 import qualified Brick as B
 import qualified Brick.BChan as BC
 import qualified Graphics.Vty as V
@@ -62,13 +63,13 @@ data ToBrick = LayoutRequest (MVar (Maybe Layout))
              | ClearLayout
 
 handleEvent :: (Eq n) => Config e
-            -> Widget n -> B.BrickEvent n e -> B.EventM n (Widget n)
-handleEvent c w (B.AppEvent e) =
+            -> Widget n -> BrickEvent n e -> EventM n (Widget n)
+handleEvent c w (AppEvent e) =
     case (fromAppEventType c) e of
       Just (LayoutRequest mv) -> do
-          me <- B.lookupExtent (name w)
+          me <- lookupExtent (name w)
           case me of
-            Just (B.Extent _ _ (wid, he) _) -> do
+            Just (Extent _ _ (wid, he) _) -> do
                 liftIO . putMVar mv $ Just $ Layout wid he
                 return $ w { extent = Just (wid, he) }
             Nothing -> do
@@ -80,8 +81,8 @@ handleEvent c w (B.AppEvent e) =
               w' = w { visibleLines = visibleLines w ++ [pre ++ suff]
                      , current = ("", "")
                      }
-          let vp = B.viewportScroll (name w)
-          B.vScrollToEnd vp
+          let vp = viewportScroll (name w)
+          vScrollToEnd vp
           return w'
 
       Just (PrintLines ls) -> do
@@ -98,7 +99,7 @@ handleEvent c w (B.AppEvent e) =
 
       Nothing -> return w
 
-handleEvent c w (B.VtyEvent (V.EvKey k ms)) = do
+handleEvent c w (VtyEvent (V.EvKey k ms)) = do
     liftIO $ writeChan (fromBrickChan c) $ mkKeyEvent k
     return w
         where
@@ -131,10 +132,10 @@ handleEvent c w (B.VtyEvent (V.EvKey k ms)) = do
             addModifiers (V.MMeta:tl) k' = addModifiers tl . K.metaKey $ k'
             addModifiers (V.MAlt:tl) k' = addModifiers tl k'
 
-handleEvent _ w (B.VtyEvent (V.EvResize _ _)) = do
-    me <- B.lookupExtent (name w)
+handleEvent _ w (VtyEvent (V.EvResize _ _)) = do
+    me <- lookupExtent (name w)
     case me of
-      Just (B.Extent _ _ (wid, he) _) -> do
+      Just (Extent _ _ (wid, he) _) -> do
           return $ w { extent = Just (wid, he) }
       Nothing -> return w
 
@@ -159,9 +160,9 @@ brickRunTerm c = do
                      }
         where
             putStrOut' :: String -> IO ()
-            putStrOut' str = do
+            putStrOut' s = do
                 BC.writeBChan (toAppChan c) $
-                    toAppEventType c $ PrintLines [str]
+                    toAppEventType c $ PrintLines [s]
 
             getLayout' :: IO Layout
             getLayout' = do
@@ -195,25 +196,16 @@ evalBrickTerm c = EvalTerm
 instance (MonadReader Layout m, MonadException m)
   => Term (BrickTerm m) where
     reposition _ _ = return ()
-
-    moveToNextLine _ = do
-        f <- ask
-        liftIO $ f MoveToNextLine
-
-    printLines ls = do
-        f <- ask
-        liftIO $ f $ PrintLines ls
-
-    drawLineDiff _ d = do
-        f <- ask
-        liftIO $ f $ DrawLineDiff d
-
-    clearLayout = do
-        f <- ask
-        liftIO $ f $ ClearLayout
-
+    moveToNextLine _ = sendToBrick MoveToNextLine
+    printLines ls = sendToBrick $ PrintLines ls
+    drawLineDiff _ d = sendToBrick $ DrawLineDiff d
+    clearLayout = sendToBrick $ ClearLayout
     ringBell _ = return ()
 
+sendToBrick :: MonadIO m => ToBrick -> BrickTerm m ()
+sendToBrick e = do
+    f <- ask
+    liftIO $ f e
 
 render :: (Ord n, Show n) => Widget n -> B.Widget n
 render (MkWidget { name = n
@@ -221,19 +213,19 @@ render (MkWidget { name = n
                  , visibleLines = ls
                  , extent = mext
                  }) =
-    B.reportExtent n $ B.viewport n B.Vertical  $ prev B.<=> curr
+    reportExtent n $ viewport n Vertical $ prev <=> curr
         where
-            prev = B.vBox $ map B.str $ concat $ map (wrap mext) ls
-            curr = B.visible $ B.showCursor n (loc mext) $
-                B.vBox $ map B.str $ wrap mext $ pre ++ suff
+            prev = vBox $ map str $ concat $ map (wrap mext) ls
+            curr = visible $ showCursor n (location mext) $
+                vBox $ map str $ wrap mext $ pre ++ suff
 
-            loc Nothing = B.Location (length pre, 0)
-            loc (Just (w, _)) = let (q, r) = divMod (length pre) w in
-                                    B.Location (r, q)
+            location Nothing = Location (length pre, 0)
+            location (Just (w, _)) = let (q, r) = divMod (length pre) w in
+                                     Location (r, q)
 
-wrap :: Maybe (Int, Int) -> String -> [String]
-wrap Nothing l = [l]
-wrap (Just (w, _)) l = go l
-    where go xs = case splitAt w xs of
-                    (ys, []) -> [ys]
-                    (ys, tl) -> ys : go tl
+            wrap :: Maybe (Int, Int) -> String -> [String]
+            wrap Nothing l = [l]
+            wrap (Just (w, _)) l = go l
+                where go xs = case splitAt w xs of
+                                (ys, []) -> [ys]
+                                (ys, tl) -> ys : go tl

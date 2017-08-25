@@ -15,10 +15,7 @@ import Control.Concurrent (forkFinally)
 
 import Control.Monad.IO.Class (liftIO)
 
-data Event = InputLine String
-           | EOF
-           | Quit
-           | FromHBWidget HB.ToBrick
+data Event = FromHBWidget HB.ToBrick
            | HaskelineDied (Either SomeException ())
 
 data Name = TheApp | HaskelineWidget
@@ -27,7 +24,7 @@ data Name = TheApp | HaskelineWidget
 data MyState = MyState { haskelineWidget :: HB.Widget Name }
 
 initialState :: MyState
-initialState =MyState { haskelineWidget = HB.initialWidget HaskelineWidget }
+initialState = MyState { haskelineWidget = HB.initialWidget HaskelineWidget }
 
 app :: HB.Config Event -> App MyState Event Name
 app c = App { appDraw = drawUI
@@ -44,11 +41,8 @@ handleEvent c s@MyState{haskelineWidget = hw} e = do
     handleAppEvent (s { haskelineWidget = hw' }) e
 
 handleAppEvent :: MyState -> BrickEvent Name Event -> EventM Name (Next MyState)
-handleAppEvent s (AppEvent (HaskelineDied e)) = do
-    liftIO $ putStrLn $ show e
-    continue s
+handleAppEvent s (AppEvent (HaskelineDied e)) = halt s
 handleAppEvent s (VtyEvent (V.EvKey V.KEsc [])) = halt s
-handleAppEvent s (VtyEvent (V.EvKey (V.KChar 'q') [])) = halt s
 handleAppEvent s _ = continue s
 
 drawUI :: MyState -> [Widget Name]
@@ -66,7 +60,6 @@ runHaskeline c = runInputTBehavior (HB.useBrick c) defaultSettings loop
            minput <- getInputLine "% "
            case minput of
              Nothing -> return ()
-             Just "quit" -> return ()
              Just input -> do
                  outputStr input
                  loop
