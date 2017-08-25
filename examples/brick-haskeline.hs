@@ -12,29 +12,21 @@ import qualified Graphics.Vty as V
 
 import Control.Monad (void)
 import Control.Concurrent (forkFinally)
-
 import Control.Monad.IO.Class (liftIO)
 
-data Event = InputLine String
-           | EOF
-           | Quit
-           | FromHBWidget HB.ToBrick
-           | HaskelineDied (Either SomeException ())
+data Event = FromHBWidget HB.ToBrick | HaskelineDied (Either SomeException ())
 
 data Name = TheApp | HaskelineWidget
     deriving (Ord, Eq, Show)
 
 data MyState = MyState { haskelineWidget :: HB.Widget Name }
 
-initialState :: MyState
-initialState =MyState { haskelineWidget = HB.initialWidget HaskelineWidget }
-
 app :: HB.Config Event -> App MyState Event Name
 app c = App { appDraw = drawUI
-            , appChooseCursor = \_ -> showCursorNamed HaskelineWidget
+            , appChooseCursor = const $ showCursorNamed HaskelineWidget
             , appHandleEvent = handleEvent c
             , appStartEvent = return
-            , appAttrMap = const theMap
+            , appAttrMap = const $ attrMap V.defAttr []
             }
 
 handleEvent :: HB.Config Event
@@ -44,29 +36,23 @@ handleEvent c s@MyState{haskelineWidget = hw} e = do
     handleAppEvent (s { haskelineWidget = hw' }) e
 
 handleAppEvent :: MyState -> BrickEvent Name Event -> EventM Name (Next MyState)
-handleAppEvent s (AppEvent (HaskelineDied e)) = do
-    liftIO $ putStrLn $ show e
-    continue s
+handleAppEvent s (AppEvent (HaskelineDied e)) = halt s
 handleAppEvent s (VtyEvent (V.EvKey V.KEsc [])) = halt s
-handleAppEvent s (VtyEvent (V.EvKey (V.KChar 'q') [])) = halt s
 handleAppEvent s _ = continue s
 
 drawUI :: MyState -> [Widget Name]
-drawUI s = [(C.center $ str "yo") <=>
-    (B.border $ HB.render (haskelineWidget s))]
-
-theMap :: AttrMap
-theMap = attrMap V.defAttr []
+drawUI s = [ top <=> bottom ]
+    where
+        top = C.center $ str "yo"
+        bottom = B.border $ HB.render (haskelineWidget s)
 
 runHaskeline :: HB.Config Event -> IO ()
 runHaskeline c = runInputTBehavior (HB.useBrick c) defaultSettings loop
    where
-       loop :: InputT IO ()
        loop = do
            minput <- getInputLine "% "
            case minput of
              Nothing -> return ()
-             Just "quit" -> return ()
              Just input -> do
                  outputStr input
                  loop
@@ -85,4 +71,4 @@ main = do
         (V.mkVty V.defaultConfig)
         (Just chan)
         (app config)
-        initialState
+        MyState { haskelineWidget = HB.initialWidget HaskelineWidget }
