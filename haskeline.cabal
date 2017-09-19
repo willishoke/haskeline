@@ -71,6 +71,13 @@ Library
                 System.Console.Haskeline.History
                 System.Console.Haskeline.IO
 
+                --TODO: re-export these under Internal?
+                System.Console.Haskeline.Monads
+                System.Console.Haskeline.InputT
+                System.Console.Haskeline.Term
+                System.Console.Haskeline.Key
+                System.Console.Haskeline.LineState
+
     Other-Modules:
                 System.Console.Haskeline.Backend
                 System.Console.Haskeline.Backend.WCWidth
@@ -80,14 +87,9 @@ Library
                 System.Console.Haskeline.Command.KillRing
                 System.Console.Haskeline.Directory
                 System.Console.Haskeline.Emacs
-                System.Console.Haskeline.InputT
-                System.Console.Haskeline.Key
-                System.Console.Haskeline.LineState
-                System.Console.Haskeline.Monads
                 System.Console.Haskeline.Prefs
                 System.Console.Haskeline.Recover
                 System.Console.Haskeline.RunCommand
-                System.Console.Haskeline.Term
                 System.Console.Haskeline.Command.Undo
                 System.Console.Haskeline.Vi
     include-dirs: includes
@@ -118,7 +120,13 @@ Library
     }
     ghc-options: -Wall
 
-    if flag(brick) {
-        Build-Depends: brick >= 0.17, vty >= 5.15
-        Exposed-Modules: System.Console.Haskeline.Brick
-    }
+Executable haskeline-brick
+    Build-Depends:         brick >= 0.17
+                         , vty >= 5.15
+                         , haskeline
+                         , base >=4.5
+                         , transformers >= 0.2 && < 0.6
+    Main-Is:             Main.hs
+    hs-source-dirs:      brick
+    ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+    default-language:    Haskell98

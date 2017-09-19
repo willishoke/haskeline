@@ -41,7 +41,7 @@ handleAppEvent s (VtyEvent (V.EvKey V.KEsc [])) = halt s
 handleAppEvent s _ = continue s
 
 drawUI :: MyState -> [Widget Name]
-drawUI s = [ top <=> bottom ]
+drawUI s = [ (vLimit 4 $ top) <=> bottom ]
     where
         top = C.center $ str "yo"
         bottom = B.border $ HB.render (haskelineWidget s)

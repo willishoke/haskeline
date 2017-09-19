@@ -1,3 +1,5 @@
+{-# LANGUAGE RankNTypes, FlexibleContexts, UndecidableInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module System.Console.Haskeline.Brick ( configure
                                       , initialWidget
                                       , Widget
