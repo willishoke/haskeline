@@ -39,11 +39,6 @@ flag terminfo
     Default: True
     Manual: True
 
-flag brick
-    Description: Build the Brick widget
-    Default: False
-    Manual: True
-
 Library
     -- We require ghc>=7.4.1 (base>=4.5) to use the base library encodings, even
     -- though it was implemented in earlier releases, due to GHC bug #5436 which
@@ -52,7 +47,6 @@ Library
                    directory>=1.1 && < 1.4, bytestring>=0.9 && < 0.11,
                    filepath >= 1.2 && < 1.5, transformers >= 0.2 && < 0.6,
                    process >= 1.0 && < 1.7
-
     Default-Language: Haskell98
     Default-Extensions:
                 ForeignFunctionInterface, Rank2Types, FlexibleInstances,
@@ -80,16 +74,16 @@ Library
                 System.Console.Haskeline.Command.KillRing
                 System.Console.Haskeline.Directory
                 System.Console.Haskeline.Emacs
+                System.Console.Haskeline.InputT
+                System.Console.Haskeline.Key
+                System.Console.Haskeline.LineState
+                System.Console.Haskeline.Monads
                 System.Console.Haskeline.Prefs
                 System.Console.Haskeline.Recover
                 System.Console.Haskeline.RunCommand
+                System.Console.Haskeline.Term
                 System.Console.Haskeline.Command.Undo
                 System.Console.Haskeline.Vi
-                System.Console.Haskeline.Monads
-                System.Console.Haskeline.Term
-                System.Console.Haskeline.Key
-                System.Console.Haskeline.LineState
-                System.Console.Haskeline.InputT
     include-dirs: includes
     c-sources: cbits/h_wcwidth.c
 
