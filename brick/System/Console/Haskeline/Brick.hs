@@ -10,11 +10,7 @@ module System.Console.Haskeline.Brick ( configure
                                       , render
                                       ) where
 
-import System.Console.Haskeline.Term
-import System.Console.Haskeline.LineState
-import System.Console.Haskeline.Monads
-import qualified System.Console.Haskeline.InputT as I
-import qualified System.Console.Haskeline.Key as K
+import System.Console.Haskeline.Internal
 
 import qualified Control.Monad.Trans.Reader as Reader
 
@@ -107,31 +103,31 @@ handleEvent c w (VtyEvent (V.EvKey k ms)) = do
         where
             mkKeyEvent :: V.Key -> Event
             mkKeyEvent (V.KChar c') =
-                KeyInput [ addModifiers ms $ K.simpleKey (K.KeyChar c') ]
+                KeyInput [ addModifiers ms $ simpleKey (KeyChar c') ]
             mkKeyEvent V.KEnter =
-                KeyInput [ addModifiers ms $ K.simpleKey (K.KeyChar '\n') ]
+                KeyInput [ addModifiers ms $ simpleKey (KeyChar '\n') ]
             mkKeyEvent V.KBS =
-                KeyInput [ addModifiers ms $ K.simpleKey K.Backspace ]
+                KeyInput [ addModifiers ms $ simpleKey Backspace ]
             mkKeyEvent V.KDel =
-                KeyInput [ addModifiers ms $ K.simpleKey K.Delete ]
+                KeyInput [ addModifiers ms $ simpleKey Delete ]
             mkKeyEvent V.KLeft =
-                KeyInput [ addModifiers ms $ K.simpleKey K.LeftKey ]
+                KeyInput [ addModifiers ms $ simpleKey LeftKey ]
             mkKeyEvent V.KRight =
-                KeyInput [ addModifiers ms $ K.simpleKey K.RightKey ]
+                KeyInput [ addModifiers ms $ simpleKey RightKey ]
             mkKeyEvent V.KUp =
-                KeyInput [ addModifiers ms $ K.simpleKey K.UpKey ]
+                KeyInput [ addModifiers ms $ simpleKey UpKey ]
             mkKeyEvent V.KDown =
-                KeyInput [ addModifiers ms $ K.simpleKey K.DownKey ]
+                KeyInput [ addModifiers ms $ simpleKey DownKey ]
             mkKeyEvent _ = KeyInput []
 
-            addModifiers :: [V.Modifier] -> K.Key -> K.Key
+            addModifiers :: [V.Modifier] -> Key -> Key
             addModifiers [] k' = k'
-            addModifiers (V.MShift:tl) (K.Key m bc) =
-                addModifiers tl $ (K.Key m { K.hasShift = True } bc)
-            addModifiers (V.MCtrl:tl) (K.Key m (K.KeyChar c')) =
-                addModifiers tl $ K.Key m (K.KeyChar $ K.setControlBits c')
-            addModifiers (V.MCtrl:tl) k' = addModifiers tl . K.ctrlKey $ k'
-            addModifiers (V.MMeta:tl) k' = addModifiers tl . K.metaKey $ k'
+            addModifiers (V.MShift:tl) (Key m bc) =
+                addModifiers tl $ (Key m { hasShift = True } bc)
+            addModifiers (V.MCtrl:tl) (Key m (KeyChar c')) =
+                addModifiers tl $ Key m (KeyChar $ setControlBits c')
+            addModifiers (V.MCtrl:tl) k' = addModifiers tl . ctrlKey $ k'
+            addModifiers (V.MMeta:tl) k' = addModifiers tl . metaKey $ k'
             addModifiers (V.MAlt:tl) k' = addModifiers tl k'
 
 handleEvent _ w (VtyEvent (V.EvResize _ _)) = do
@@ -143,8 +139,8 @@ handleEvent _ w (VtyEvent (V.EvResize _ _)) = do
 
 handleEvent _ w _ = return w
 
-useBrick :: Config e -> I.Behavior
-useBrick c = I.Behavior (brickRunTerm c)
+useBrick :: Config e -> Behavior
+useBrick c = Behavior (brickRunTerm c)
 
 brickRunTerm :: Config e -> IO RunTerm
 brickRunTerm c = do

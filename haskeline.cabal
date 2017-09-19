@@ -70,14 +70,7 @@ Library
                 System.Console.Haskeline.MonadException
                 System.Console.Haskeline.History
                 System.Console.Haskeline.IO
-
-                --TODO: re-export these under Internal?
-                System.Console.Haskeline.Monads
-                System.Console.Haskeline.InputT
-                System.Console.Haskeline.Term
-                System.Console.Haskeline.Key
-                System.Console.Haskeline.LineState
-
+                System.Console.Haskeline.Internal
     Other-Modules:
                 System.Console.Haskeline.Backend
                 System.Console.Haskeline.Backend.WCWidth
@@ -92,6 +85,11 @@ Library
                 System.Console.Haskeline.RunCommand
                 System.Console.Haskeline.Command.Undo
                 System.Console.Haskeline.Vi
+                System.Console.Haskeline.Monads
+                System.Console.Haskeline.Term
+                System.Console.Haskeline.Key
+                System.Console.Haskeline.LineState
+                System.Console.Haskeline.InputT
     include-dirs: includes
     c-sources: cbits/h_wcwidth.c
 
