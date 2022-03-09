@@ -11,10 +11,13 @@ module System.Console.Haskeline.Brick ( configure
 import System.Console.Haskeline.Term
 import System.Console.Haskeline.LineState
 import System.Console.Haskeline.Monads
+import System.Console.Haskeline.MonadException
 import qualified System.Console.Haskeline.InputT as I
 import qualified System.Console.Haskeline.Key as K
 
 import qualified Control.Monad.Trans.Reader as Reader
+import Control.Monad.Catch
+import Control.Concurrent.STM
 
 import Brick hiding (Widget, render)
 import qualified Brick as B
@@ -23,7 +26,7 @@ import qualified Graphics.Vty as V
 
 import Control.Concurrent
 
-data Config e = MkConfig { fromBrickChan :: Chan Event
+data Config e = MkConfig { fromBrickChan :: TChan Event
                          , toAppChan :: BC.BChan e
                          , toAppEventType :: ToBrick -> e
                          , fromAppEventType :: e -> Maybe ToBrick
@@ -41,7 +44,7 @@ configure :: BC.BChan e
           -> (e -> Maybe ToBrick)
           -> IO (Config e)
 configure toAppChan' toAppEventType' fromAppEventType' = do
-    ch <- newChan
+    ch <- newTChanIO 
     return $ MkConfig { fromBrickChan = ch
                       , toAppChan = toAppChan'
                       , toAppEventType = toAppEventType'
@@ -69,7 +72,7 @@ handleEvent c w (AppEvent e) =
       Just (LayoutRequest mv) -> do
           me <- lookupExtent (name w)
           case me of
-            Just (Extent _ _ (wid, he) _) -> do
+            Just (Extent _ _ (wid, he)) -> do
                 liftIO . putMVar mv $ Just $ Layout wid he
                 return $ w { extent = Just (wid, he) }
             Nothing -> do
@@ -100,7 +103,7 @@ handleEvent c w (AppEvent e) =
       Nothing -> return w
 
 handleEvent c w (VtyEvent (V.EvKey k ms)) = do
-    liftIO $ writeChan (fromBrickChan c) $ mkKeyEvent k
+    liftIO $ atomically . writeTChan (fromBrickChan c) $ mkKeyEvent k
     return w
         where
             mkKeyEvent :: V.Key -> Event
@@ -135,7 +138,7 @@ handleEvent c w (VtyEvent (V.EvKey k ms)) = do
 handleEvent _ w (VtyEvent (V.EvResize _ _)) = do
     me <- lookupExtent (name w)
     case me of
-      Just (Extent _ _ (wid, he) _) -> do
+      Just (Extent _ _ (wid, he)) -> do
           return $ w { extent = Just (wid, he) }
       Nothing -> return w
 
@@ -151,7 +154,7 @@ brickRunTerm c = do
                        , saveUnusedKeys = saveKeys (fromBrickChan c)
                        , evalTerm = evalBrickTerm c
                        , externalPrint =
-                           writeChan (fromBrickChan c) . ExternalPrint
+                           atomically . writeTChan (fromBrickChan c) . ExternalPrint
                        }
     return $ RunTerm { putStrOut = putStrOut'
                      , termOps = Left tops
@@ -176,11 +179,11 @@ brickRunTerm c = do
 
             withGetEvent' :: forall m a . CommandMonad m
                           => (m Event -> m a) -> m a
-            withGetEvent' f = f $ liftIO $ readChan (fromBrickChan c)
+            withGetEvent' f = f $ liftIO $ atomically $ readTChan (fromBrickChan c)
 
 newtype BrickTerm m a =
     MkBrickTerm { unBrickTerm :: ReaderT (ToBrick -> IO ()) m a }
-    deriving ( MonadException, MonadIO, Monad, Applicative, Functor
+    deriving ( MonadException, MonadIO, MonadThrow, MonadCatch, MonadMask, Monad, Applicative, Functor
              , MonadReader (ToBrick -> IO ())
              )
 
@@ -193,7 +196,7 @@ evalBrickTerm c = EvalTerm
     (MkBrickTerm . lift)
         where send = BC.writeBChan (toAppChan c) . toAppEventType c
 
-instance (MonadReader Layout m, MonadException m)
+instance (MonadReader Layout m, MonadIO m, MonadMask m)
   => Term (BrickTerm m) where
     reposition _ _ = return ()
     moveToNextLine _ = sendToBrick MoveToNextLine
@@ -202,7 +205,7 @@ instance (MonadReader Layout m, MonadException m)
     clearLayout = sendToBrick $ ClearLayout
     ringBell _ = return ()
 
-sendToBrick :: MonadIO m => ToBrick -> BrickTerm m ()
+sendToBrick :: (MonadIO m, MonadMask m) => ToBrick -> BrickTerm m ()
 sendToBrick e = do
     f <- ask
     liftIO $ f e
